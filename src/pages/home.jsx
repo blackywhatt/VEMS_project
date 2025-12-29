@@ -1,8 +1,21 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../style/home.css';
+import weatherImg from '../assets/weather.png';
+import emergencyImg from '../assets/emergency.png';
+import serviceImg from '../assets/service.png';
 
 const Home = () => {
-  useEffect(() => { document.title = 'home'; }, []);
+  const navigate = useNavigate();
+  useEffect(() => { document.title = 'Home'; }, []);
+
+  // Simple Token Check: If no token exists, redirect to login
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const [currentHash, setCurrentHash] = useState(
     (typeof window !== 'undefined' && window.location.hash) ? window.location.hash : '#overview'
@@ -17,15 +30,27 @@ const Home = () => {
   }, []);
 
   const [cards] = useState([
-    { id: 1, img: 'src/assets/weather.png', title: 'Weather', text: 'Sunny' },
-    { id: 2, img: 'src/assets/emergency.png', title: 'Emergency Status', text: 'Normal' },
-    { id: 4, img: 'src/assets/service.png', title: 'Service Status', text: 'Maintenance' },
+    { id: 1, img: weatherImg, title: 'Weather', text: 'Sunny' },
+    { id: 2, img: emergencyImg, title: 'Emergency Status', text: 'Normal' },
+    { id: 4, img: serviceImg, title: 'Service Status', text: 'Maintenance' },
   ]);
 
 
 
-  const handleLogout = () => {
-    alert('Logged out');
+  const handleLogout = async () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        await fetch('http://localhost:5000/api/logout', {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch (error) {
+        console.error("Logout API call failed:", error);
+      }
+    }
+    localStorage.clear();
+    navigate('/login');
   };
 
   return (
