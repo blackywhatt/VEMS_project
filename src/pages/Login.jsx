@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import '../style/Form.css';
 
 const Login = () => {
@@ -159,10 +159,10 @@ const Login = () => {
             </form>
 
             <p className="text-navigation">
-              <a href="#">Forgot password?</a>
+              <Link to="/forgot-password">Forgot password?</Link>
             </p>
             <p className="text-navigation">
-              Don't have an account? <a href="Register">Register</a>
+              Don't have an account? <Link to="/register">Register</Link>
             </p>
           </>
         )}

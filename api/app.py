@@ -4,14 +4,18 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt, get_jwt_identity
+from werkzeug.utils import secure_filename
+import uuid
+import json
+import re
 
 app = Flask(__name__)
 CORS(app)
 
-# -- Configuration --
+# -- Config --
 
-# Database connection settings
+# Database config
 basedir = os.path.abspath(os.path.dirname(__file__))
 ca_path = os.path.join(basedir, "ca.pem")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://avnadmin:AVNS_haHcW_DduWectuJTAmL@vemsdb-zakiadib4646-91e5.h.aivencloud.com:20218/defaultdb'
@@ -24,35 +28,106 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     }
 }
 
-# JWT (token) configuration
+# File upload config
+UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# JWT config
 app.config["JWT_SECRET_KEY"] = "5f4d2e8b9a1c7d6e3f0b2a4c9d8e7f1a5b8c0d9e2f4a6b7c1d3e5f0a2b4c6d8e" 
 jwt = JWTManager(app)
 
-# A simple in-memory set to store revoked tokens. This gets cleared on server restart.
+# Revoked tokens storage
 BLOCKLIST = set()
 
-# This function checks the blocklist every time a protected route is accessed.
+# Check token blocklist
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blocklist(jwt_header, jwt_payload):
     jti = jwt_payload["jti"]
     return jti in BLOCKLIST
 
-# Initialize the database
+# Init DB
 db = SQLAlchemy(app)
 
-# -- Database Models --
+# -- Models --
 
 class User(db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     real_id = db.Column(db.String(50), unique=True)
     name = db.Column(db.String(100))
     email = db.Column(db.String(120), unique=True)
     password = db.Column(db.String(255))
     otp = db.Column(db.String(6))
+    phone_number = db.Column(db.String(20))
     role = db.Column(db.String(50))
+    assigned_village = db.Column(db.Integer, db.ForeignKey('villages.id'))
     reg_date = db.Column(db.DateTime, default=datetime.utcnow)
     
-# -- API Routes --
+class Village(db.Model):
+    __tablename__ = 'villages'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True)
+    population = db.Column(db.Integer)
+    emergency_status = db.Column(db.String(50))
+    service_status = db.Column(db.String(50))
+    todays_reports = db.Column(db.Integer)
+
+class Report(db.Model):
+    __tablename__ = 'reports'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.real_id'))
+    content = db.Column(db.Text)
+    file_paths = db.Column(db.Text)
+    report_date = db.Column(db.DateTime)
+    assigned_village = db.Column(db.Integer, db.ForeignKey('villages.id'))
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Note(db.Model):
+    __tablename__ = 'notes'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.real_id'))
+    content = db.Column(db.Text)
+    file_paths = db.Column(db.Text)
+    note_date = db.Column(db.DateTime)
+    assigned_village = db.Column(db.Integer, db.ForeignKey('villages.id'))
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class SOSRequest(db.Model):
+    __tablename__ = 'sos_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.real_id'))
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    message = db.Column(db.Text)
+    status = db.Column(db.String(50), default='Pending')
+    assigned_village = db.Column(db.Integer, db.ForeignKey('villages.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Announcement(db.Model):
+    __tablename__ = 'announcements'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.real_id'))
+    title = db.Column(db.String(200))
+    content = db.Column(db.Text)
+    assigned_village = db.Column(db.Integer, db.ForeignKey('villages.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# -- Routes --
+
+@app.route('/api/villages', methods=['GET'])
+def get_villages():
+    villages = Village.query.all()
+    output = [{'id': v.id, 'name': v.name} for v in villages]
+    return jsonify(output), 200
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -63,9 +138,27 @@ def register():
     user_id = data.get('id')
     name = data.get('name')
     email = data.get('email')
+    phone_number = data.get('phone_number')
     password = data.get('password')
+    assigned_village = data.get('assigned_village')
 
-    # Check if the user or email already exists to prevent duplicates.
+    # Input validation
+    if not name or len(name.strip()) < 2:
+        return jsonify({"message": "Invalid name"}), 400
+
+    if not email or not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        return jsonify({"message": "Invalid email format"}), 400
+
+    if not phone_number or not re.match(r"^[0-9+\-\s]{9,15}$", phone_number):
+        return jsonify({"message": "Invalid phone number format"}), 400
+
+    if not user_id or not re.match(r"^[a-zA-Z0-9]+$", user_id):
+        return jsonify({"message": "Invalid ID format"}), 400
+
+    if not password or len(password) < 8 or not re.search(r"\d", password):
+        return jsonify({"message": "Password must be at least 8 characters and contain a number"}), 400
+
+    # Check duplicates
     if User.query.filter((User.email == email) | (User.real_id == user_id)).first():
         return jsonify({"message": "Email or ID already registered"}), 400
 
@@ -74,8 +167,10 @@ def register():
         name=name,
         email=email,
         password=generate_password_hash(password),
-        role="head",
-        otp="666666"
+        phone_number=phone_number,
+        role="villager",
+        otp="666666",
+        assigned_village=assigned_village
     )
 
     try:
@@ -93,11 +188,11 @@ def login():
     email = data.get('email')
     password = data.get('password')
     
-    # Find the user by their email.
+    # Find user
     user = User.query.filter_by(email=email).first()
     
     if user and check_password_hash(user.password, password):
-        # If credentials are correct, create a new access token with the user's role.
+        # Verify password & generate token
         access_token = create_access_token(identity=user.real_id, additional_claims={"role": user.role})
         
         return jsonify({
@@ -116,12 +211,309 @@ def login():
 @app.route('/api/logout', methods=['DELETE'])
 @jwt_required()
 def logout():
-    # Get the unique identifier for the token and add it to the blocklist.
+    # Revoke token
     jti = get_jwt()["jti"]
     BLOCKLIST.add(jti)
     return jsonify(msg="Successfully logged out"), 200
 
-# A protected route that only users with the 'head' role can access.
+@app.route('/api/submit_report', methods=['POST'])
+@jwt_required()
+def submit_report():
+    # Parse form data
+    content = request.form.get('content')
+    report_date_str = request.form.get('report_date')
+    files = request.files.getlist('files')
+
+    user_id = get_jwt_identity()
+
+    # Get user's village
+    user = User.query.filter_by(real_id=user_id).first()
+    assigned_village = user.assigned_village if user else None
+    
+    # Set timestamp
+    current_time = datetime.utcnow()
+    
+    report_date = None
+    if report_date_str:
+        try:
+            report_date = datetime.fromisoformat(report_date_str.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+    
+    # Handle files
+    saved_files = []
+    if len(files) > 3:
+        return jsonify({"message": "Maximum 3 files allowed"}), 400
+
+    for file in files:
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+            saved_files.append(unique_filename)
+        elif file.filename:
+            return jsonify({"message": "Invalid file type"}), 400
+
+    new_report = Report(
+        user_id=user_id,
+        content=content,
+        file_paths=json.dumps(saved_files),
+        report_date=report_date,
+        assigned_village=assigned_village,
+        submitted_at=current_time
+    )
+    
+    try:
+        db.session.add(new_report)
+        db.session.commit()
+        return jsonify({"message": "Report submitted successfully", "time": current_time.isoformat()}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Database error", "error": str(e)}), 500
+
+@app.route('/api/submit_note', methods=['POST'])
+@jwt_required()
+def submit_note():
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied: Head only"}), 403
+        
+    # Parse form data
+    content = request.form.get('content')
+    note_date_str = request.form.get('note_date')
+    files = request.files.getlist('files')
+
+    user_id = get_jwt_identity()
+
+    # Get user's village
+    user = User.query.filter_by(real_id=user_id).first()
+    assigned_village = user.assigned_village if user else None
+    
+    # Set timestamp
+    current_time = datetime.utcnow()
+    
+    note_date = None
+    if note_date_str:
+        try:
+            note_date = datetime.fromisoformat(note_date_str.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+    
+    # Handle files
+    saved_files = []
+    if len(files) > 3:
+        return jsonify({"message": "Maximum 3 files allowed"}), 400
+
+    for file in files:
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+            saved_files.append(unique_filename)
+        elif file.filename:
+            return jsonify({"message": "Invalid file type"}), 400
+
+    new_note = Note(
+        user_id=user_id,
+        content=content,
+        file_paths=json.dumps(saved_files),
+        note_date=note_date,
+        assigned_village=assigned_village,
+        submitted_at=current_time
+    )
+    
+    try:
+        db.session.add(new_note)
+        db.session.commit()
+        return jsonify({"message": "Note submitted successfully", "time": current_time.isoformat()}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Database error", "error": str(e)}), 500
+
+@app.route('/api/reports', methods=['GET'])
+@jwt_required()
+def get_reports():
+    user_id = get_jwt_identity()
+    reports = Report.query.filter_by(user_id=user_id).order_by(Report.submitted_at.desc()).all()
+    
+    output = []
+    for report in reports:
+        output.append({
+            'id': report.id,
+            'content': report.content,
+            'file_paths': json.loads(report.file_paths) if report.file_paths else [],
+            'report_date': report.report_date.isoformat() if report.report_date else None,
+            'submitted_at': report.submitted_at.isoformat()
+        })
+    
+    return jsonify(output), 200
+
+@app.route('/api/notes', methods=['GET'])
+@jwt_required()
+def get_notes():
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied: Head only"}), 403
+        
+    notes = Note.query.order_by(Note.submitted_at.desc()).all()
+    
+    output = []
+    for note in notes:
+        output.append({
+            'id': note.id,
+            'user_id': note.user_id,
+            'content': note.content,
+            'file_paths': json.loads(note.file_paths) if note.file_paths else [],
+            'note_date': note.note_date.isoformat() if note.note_date else None,
+            'submitted_at': note.submitted_at.isoformat()
+        })
+    
+    return jsonify(output), 200
+
+@app.route('/api/sos_requests', methods=['GET'])
+@jwt_required()
+def get_sos_requests():
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied: Head only"}), 403
+    
+    requests = SOSRequest.query.order_by(SOSRequest.created_at.desc()).all()
+    output = []
+    for req in requests:
+        output.append({
+            'id': req.id,
+            'user_id': req.user_id,
+            'latitude': req.latitude,
+            'longitude': req.longitude,
+            'message': req.message,
+            'status': req.status,
+            'created_at': req.created_at.isoformat()
+        })
+    return jsonify(output), 200
+
+@app.route('/api/sos', methods=['POST'])
+@jwt_required()
+def submit_sos():
+    data = request.get_json(force=True)
+    user_id = get_jwt_identity()
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    
+    # Validate coords
+    try:
+        lat_val = float(latitude)
+        lon_val = float(longitude)
+        if not (-90 <= lat_val <= 90) or not (-180 <= lon_val <= 180):
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({"message": "Invalid coordinates"}), 400
+
+    user = User.query.filter_by(real_id=user_id).first()
+    assigned_village = user.assigned_village if user else None
+
+    new_sos = SOSRequest(
+        user_id=user_id,
+        latitude=latitude,
+        longitude=longitude,
+        message="Emergency SOS Signal",
+        assigned_village=assigned_village
+    )
+    
+    try:
+        db.session.add(new_sos)
+        db.session.commit()
+        return jsonify({"message": "SOS signal received"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Database error", "error": str(e)}), 500
+
+@app.route('/api/update_village_status', methods=['POST'])
+@jwt_required()
+def update_village_status():
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied"}), 403
+    
+    user_id = get_jwt_identity()
+    user = User.query.filter_by(real_id=user_id).first()
+    if not user or not user.assigned_village:
+        return jsonify({"message": "User not assigned to a village"}), 400
+        
+    village = Village.query.get(user.assigned_village)
+    if not village:
+        return jsonify({"message": "Village not found"}), 404
+        
+    data = request.get_json(force=True)
+    village.emergency_status = data.get('emergency_status', village.emergency_status)
+    village.service_status = data.get('service_status', village.service_status)
+    
+    db.session.commit()
+    return jsonify({"message": "Status updated"}), 200
+
+@app.route('/api/submit_announcement', methods=['POST'])
+@jwt_required()
+def submit_announcement():
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied: Head only"}), 403
+        
+    data = request.get_json(force=True)
+    user_id = get_jwt_identity()
+    title = data.get('title')
+    content = data.get('content')
+    
+    # Get user's village
+    user = User.query.filter_by(real_id=user_id).first()
+    assigned_village = user.assigned_village if user else None
+    
+    new_announcement = Announcement(
+        user_id=user_id,
+        title=title,
+        content=content,
+        assigned_village=assigned_village
+    )
+    
+    try:
+        db.session.add(new_announcement)
+        db.session.commit()
+        return jsonify({"message": "Announcement created successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Database error", "error": str(e)}), 500
+
+@app.route('/api/announcements', methods=['GET'])
+@jwt_required()
+def get_announcements():
+    announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    output = []
+    for a in announcements:
+        output.append({
+            'id': a.id,
+            'title': a.title,
+            'content': a.content,
+            'user_id': a.user_id,
+            'created_at': a.created_at.isoformat()
+        })
+    return jsonify(output), 200
+
+@app.route('/api/village_status', methods=['GET'])
+@jwt_required()
+def get_village_status():
+    user_id = get_jwt_identity()
+    user = User.query.filter_by(real_id=user_id).first()
+    if not user or not user.assigned_village:
+        return jsonify({"message": "User not assigned to a village"}), 400
+        
+    village = Village.query.get(user.assigned_village)
+    if not village:
+        return jsonify({"message": "Village not found"}), 404
+        
+    return jsonify({
+        "emergency_status": village.emergency_status,
+        "service_status": village.service_status
+    }), 200
+
+# Admin only route
 @app.route('/api/admin_only', methods=['GET'])
 @jwt_required()
 def admin_only():
