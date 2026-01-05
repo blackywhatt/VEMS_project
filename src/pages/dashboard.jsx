@@ -408,7 +408,7 @@ const refreshSOS = async () => {
 
   useEffect(() => {
     fetchVillageStatus();
-  }, [fetchVillageStatus]);
+  }, []);
 
   const [showForm, setShowForm] = useState(false);
   const [files, setFiles] = useState([]);
