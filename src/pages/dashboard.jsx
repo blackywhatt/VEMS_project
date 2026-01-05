@@ -355,6 +355,7 @@ const Dashboard = () => {
         setServiceInput(data.service_status);
         updateCardText(2, data.emergency_status);
         updateCardText(4, data.service_status);
+        updateCardText(3, (data.todays_reports || 0).toString());
       }
     } catch (e) { console.error(e); }
   };
@@ -362,7 +363,7 @@ const Dashboard = () => {
   const [cards, setCards] = useState(() => [
     { id: 1, img: weatherImg, title: 'Weather', text: 'Sunny' },
     { id: 2, img: emergencyImg, title: 'Emergency Status', text: 'Loading...' },
-    { id: 3, img: reportsImg, title: "Today's Reports", text: reports.length.toString() },
+    { id: 3, img: reportsImg, title: "Today's Reports", text: 'Loading...' },
     { id: 4, img: serviceImg, title: 'Service Status', text: 'Loading...' },
   ]);
 
@@ -372,11 +373,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchVillageStatus();
-  }, []);
-
-  useEffect(() => {
-    updateCardText(3, reports.length.toString());
-  }, [reports]);
+  }, [fetchVillageStatus]);
 
   const [showForm, setShowForm] = useState(false);
   const [files, setFiles] = useState([]);
