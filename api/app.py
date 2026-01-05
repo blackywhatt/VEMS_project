@@ -466,6 +466,42 @@ def submit_sos():
         db.session.rollback()
         return jsonify({"message": "Database error", "error": str(e)}), 500
 
+@app.route('/api/sos_requests/<int:sos_id>/resolve', methods=['PUT'])
+@jwt_required()
+def resolve_sos_request(sos_id):
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied"}), 403
+
+    sos = SOSRequest.query.get(sos_id)
+    if not sos:
+        return jsonify({"message": "SOS not found"}), 404
+
+    sos.status = 'Resolved'
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "SOS resolved"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Database error", "error": str(e)}), 500
+
+@app.route('/api/sos_requests/cleanup', methods=['DELETE'])
+@jwt_required()
+def cleanup_resolved_sos():
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied"}), 403
+
+    try:
+        SOSRequest.query.filter_by(status='Resolved').delete()
+        db.session.commit()
+        return jsonify({"message": "Resolved SOS deleted"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Database error", "error": str(e)}), 500
+
+
 @app.route('/api/update_village_status', methods=['POST'])
 @jwt_required()
 def update_village_status():

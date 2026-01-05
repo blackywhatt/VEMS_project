@@ -264,6 +264,41 @@ const Dashboard = () => {
     }
   };
 
+// ✅ Resolve SOS (turn green)
+const resolveSOS = async (id) => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  await fetch(`http://localhost:5000/api/sos_requests/${id}/resolve`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  // Update UI instantly
+  setSosRequests(prev =>
+    prev.map(sos =>
+      sos.id === id ? { ...sos, status: 'Resolved' } : sos
+    )
+  );
+};
+
+// ✅ Refresh (delete resolved SOS)
+const refreshSOS = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  await fetch('http://localhost:5000/api/sos_requests/cleanup', {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  fetchSOSRequests();
+};
+
   const fetchReports = async () => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -593,23 +628,56 @@ const Dashboard = () => {
         )}
 
         {currentHash === '#urgent' && (
-          <section id="urgent" className="dashboard-section">
-            <h2 className="dash-section-title">Urgent SOS Requests</h2>
-            <div className="dash-overview-grid">
-              {sosRequests.map(item => (
-                <div key={item.id} className="dashboard-card" style={{ borderLeft: '4px solid #ef4444' }}>
-                  <h3 className="dashboard-card-title" style={{ color: '#ef4444' }}>SOS SIGNAL</h3>
-                  <div className="dashboard-card-dash" aria-hidden="true" />
-                  <p className="dashboard-card-text"><strong>User ID:</strong> {item.user_id}</p>
-                  <p className="dashboard-card-text"><strong>Location:</strong> {item.latitude}, {item.longitude}</p>
-                  <small style={{ display: 'block', marginTop: '10px', color: '#666', fontSize: '0.95em' }}>
-                    Received: {new Date(item.created_at).toLocaleString()}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+  <section id="urgent" className="dashboard-section">
+    <h2 className="dash-section-title">Urgent SOS Requests</h2>
+
+    {/* Refresh button */}
+    <button
+      className="dash-primary-btn"
+      style={{ marginBottom: '20px' }}
+      onClick={refreshSOS}
+    >
+      Refresh
+    </button>
+
+    <div className="dash-overview-grid">
+      {sosRequests.map(item => (
+        <div
+          key={item.id}
+          className={`dashboard-card ${
+            item.status === 'Resolved' ? 'sos-resolved' : 'sos-active'
+          }`}
+        >
+          <h3
+            className="dashboard-card-title"
+            style={{ color: item.status === 'Resolved' ? '#16a34a' : '#ef4444' }}
+          >
+            {item.status === 'Resolved' ? 'SOS RESOLVED' : 'SOS SIGNAL'}
+          </h3>
+
+          <div className="dashboard-card-dash" />
+
+          <p><strong>User ID:</strong> {item.user_id}</p>
+          <p><strong>Location:</strong> {item.latitude}, {item.longitude}</p>
+
+          <small style={{ display: 'block', marginTop: '10px', color: '#666' }}>
+            Received: {new Date(item.created_at).toLocaleString()}
+          </small>
+
+          {item.status !== 'Resolved' && (
+            <button
+              className="dash-btn-submit"
+              style={{ marginTop: '10px' }}
+              onClick={() => resolveSOS(item.id)}
+            >
+              Resolve
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  </section>
+)}
 
         {currentHash === '#announcements' && (
           <section id="announcements" className="dashboard-section">

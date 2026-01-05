@@ -308,3 +308,13 @@
 .leaflet-draw-edit-toolbar {
   display: none !important;
 }
+
+.sos-active {
+  border-left: 6px solid #ef4444;
+  background-color: #fee2e2;
+}
+
+.sos-resolved {
+  border-left: 6px solid #16a34a;
+  background-color: #dcfce7;
+}
