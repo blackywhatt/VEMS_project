@@ -6,6 +6,7 @@
 
 body {
   font-family:'Segoe UI';
+  font-size: 18px;
 }
 
 .container {
@@ -13,23 +14,25 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #14532d 0%, #86efac 100%); /* Malaysian Village Greenery */
 }
 
 .form {
-  background: white;
-  padding: 40px;
-  border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  background: #fffbeb; /* Warm cream/wood tone */
+  padding: 50px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   width: 100%;
-  max-width: 400px;
+  max-width: 450px;
+  border: 5px solid #78350f; /* Wood border */
 }
 
 h2 {
   margin-bottom: 30px;
-  color: #333;
-  font-size: 32px;
-  font-weight: 700;
+  color: #451a03;
+  font-size: 42px;
+  font-weight: 800;
+  text-align: center;
 }
 
 .input-group {
@@ -39,41 +42,42 @@ h2 {
 label {
   display: block;
   margin-bottom: 8px;
-  color: #555;
-  font-size: 14px;
-  font-weight: 500;
+  color: #451a03;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 input {
   width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 16px;
+  padding: 16px 20px;
+  border: 2px solid #92400e;
+  border-radius: 8px;
+  font-size: 18px;
+  background-color: #ffffff;
   transition: border-color 0.3s;
 }
 
 input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #15803d;
 }
 
 .button {
   width: 100%;
-  padding: 14px;
-  background: #667eea;
+  padding: 18px;
+  background: #15803d; /* Jungle Green */
   color: white;
   border: none;
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 22px;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.3s;
   margin-top: 10px;
 }
 
 .button:hover {
-  background: #5568d3;
+  background: #166534;
 }
 
 .text-navigation {
@@ -82,9 +86,10 @@ input:focus {
 }
 
 .text-navigation a {
-  color: #667eea;
+  color: #92400e;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .text-navigation a:hover {
@@ -92,4 +97,45 @@ input:focus {
 }
 .text-flavor {
   font-size: 24px;
+}
+
+.error-message {
+  color: #ff0000;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.logged-in-prompt {
+  text-align: center;
+}
+
+.logged-in-prompt p {
+  margin: 20px 0;
+  color: #451a03;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.button-secondary {
+  width: 100%;
+  padding: 18px;
+  background: #fef3c7;
+  color: #451a03;
+  border: 2px solid #d97706;
+  border-radius: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.button-secondary:hover {
+  background: #fde68a;
 }
