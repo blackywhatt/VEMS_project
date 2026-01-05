@@ -300,29 +300,46 @@ const refreshSOS = async () => {
 };
 
   const fetchReports = async () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetch('http://localhost:5000/api/reports', { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(res => res.json())
-        .then(data => {
-          const mapped = data.map(r => {
-            let parsed = { title: 'Report', category: '', description: r.content };
-            try { parsed = JSON.parse(r.content); } catch (e) {}
-            return {
-                id: r.id,
-                title: parsed.title,
-                category: parsed.category,
-                content: parsed.description || r.content,
-                longitude: r.longitude,
-                latitude: r.latitude,
-                created_at: new Date(r.submitted_at).toLocaleString()
-            };
-          });
-          setReports(mapped);
-        })
-          .catch(err => console.error(err));
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  try {
+    const res = await fetch('http://localhost:5000/api/reports', {
+      headers: {
+        Authorization: `Bearer ${token}`
       }
+    });
+
+    if (!res.ok) {
+      console.error('Failed to fetch reports:', res.status);
+      return;
+    }
+
+    const data = await res.json();
+    console.log("REPORT DATA:", data); // 👈 TEMP DEBUG
+
+    const mapped = data.map(r => {
+  // Your existing JSON parsing logic
+  let parsed = { title: 'Report', category: '', description: r.content };
+  try { parsed = JSON.parse(r.content); } catch {}
+
+  return {
+    id: r.id,
+    title: parsed.title || 'Villager Report',
+    category: parsed.category || 'General',
+    content: parsed.description || r.content,
+    longitude: r.longitude,
+    latitude: r.latitude,
+    // FIX: Change created_at to submitted_at to match the Backend
+    created_at: r.submitted_at ? new Date(r.submitted_at).toLocaleString() : 'No Date'
   };
+});
+
+    setReports(mapped);
+  } catch (err) {
+    console.error('Error fetching reports:', err);
+  }
+};
 
   useEffect(() => {
     if (currentHash ===  '#manage') {

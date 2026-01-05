@@ -375,7 +375,15 @@ def submit_note():
 @jwt_required()
 def get_reports():
     user_id = get_jwt_identity()
-    reports = Report.query.filter_by(user_id=user_id).order_by(Report.submitted_at.desc()).all()
+    claims = get_jwt()
+    
+    # Check if the person logged in is the Admin (head)
+    if claims.get('role') == 'head':
+        # Admin gets EVERYTHING from the database
+        reports = Report.query.order_by(Report.submitted_at.desc()).all()
+    else:
+        # Villagers only see what they personally submitted
+        reports = Report.query.filter_by(user_id=user_id).order_by(Report.submitted_at.desc()).all()
     
     output = []
     for report in reports:
@@ -386,7 +394,8 @@ def get_reports():
             'report_date': report.report_date.isoformat() if report.report_date else None,
             'longitude': report.longitude,
             'latitude': report.latitude,
-            'submitted_at': report.submitted_at.isoformat()
+            # Make sure this matches what the frontend expects
+            'submitted_at': report.submitted_at.isoformat() 
         })
     
     return jsonify(output), 200
