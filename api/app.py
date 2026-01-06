@@ -315,6 +315,19 @@ def submit_report():
         db.session.rollback()
         return jsonify({"message": "Database error", "error": str(e)}), 500
 
+@app.route('/api/reports/<int:report_id>', methods=['DELETE'])
+def resolve_report(report_id):
+    try:
+        report = Report.query.get(report_id)
+        if not report:
+            return jsonify({"message": "Report not found"}), 404
+        
+        db.session.delete(report)
+        db.session.commit()
+        return jsonify({"message": "Report resolved and removed successfully"}), 200
+    except Exception as e:
+        return jsonify({"message": "Error resolving report", "error": str(e)}), 500
+
 @app.route('/api/submit_note', methods=['POST'])
 @jwt_required()
 def submit_note():

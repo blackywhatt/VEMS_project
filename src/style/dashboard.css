@@ -318,3 +318,36 @@
   border-left: 6px solid #16a34a;
   background-color: #dcfce7;
 }
+
+.resolved-success {
+    background-color: #f0fdf4 !important; /* Very light green */
+    transform: scale(0.98);
+    opacity: 0.8;
+}
+
+.resolve-btn {
+    margin-top: 15px;
+    background-color: #22c55e;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    width: 100%;
+    transition: background 0.2s;
+}
+
+.resolve-btn:hover {
+    background-color: #16a34a;
+}
+
+.dash-btn-refresh {
+    background-color: #6366f1;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}

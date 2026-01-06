@@ -398,6 +398,22 @@ const refreshSOS = async () => {
     }
   }, [currentHash]);
 
+const handleResolveReport = async (id) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/reports/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (response.ok) {
+      // Set a local state to turn the report green before it's refreshed away
+      setReports(prev => prev.map(r => r.id === id ? { ...r, resolved: true } : r));
+      showNotification("Report marked as resolved!");
+    }
+  } catch (err) {
+    showNotification("Failed to resolve report", "error");
+  }
+};
+
   const fetchVillageStatus = async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -663,23 +679,46 @@ const refreshSOS = async () => {
         )}
 
         {currentHash === '#reports' && (
-          <section id="reports" className="dashboard-section">
-            <h2 className="dash-section-title">Emergency Reports</h2>
-            <div className="dash-overview-grid">
-              {reports.map(item => (
-                <div key={item.id} className="dashboard-card" style={{ borderLeft: '5px solid #d9534f' }}>
-                  <h3 className="dashboard-card-title">{item.title}</h3>
-                  {item.category && <small style={{ color: '#d9534f', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{item.category}</small>}
-                  <div className="dashboard-card-dash" aria-hidden="true" />
-                  <p className="dashboard-card-text">{item.content}</p>
-                  <small style={{ display: 'block', marginTop: '10px', color: '#666', fontSize: '0.95em' }}>
-                    {item.created_at}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+  <section id="reports" className="dashboard-section">
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <h2 className="dash-section-title" style={{ margin: 0 }}>Emergency Reports</h2>
+      <button onClick={fetchReports} className="dash-btn-refresh">
+        Refresh List
+      </button>
+    </div>
+
+    <div className="dash-overview-grid">
+      {reports.map(item => (
+        <div 
+          key={item.id} 
+          className={`dashboard-card ${item.resolved ? 'resolved-success' : ''}`} 
+          style={{ borderLeft: item.resolved ? '5px solid #22c55e' : '5px solid #d9534f' }}
+        >
+          <h3 className="dashboard-card-title">{item.title}</h3>
+          {item.category && (
+            <small style={{ color: item.resolved ? '#22c55e' : '#d9534f', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+              {item.category}
+            </small>
+          )}
+          <div className="dashboard-card-dash" aria-hidden="true" />
+          <p className="dashboard-card-text">{item.description || item.content}</p>
+          <small style={{ display: 'block', marginTop: '10px', color: '#666', fontSize: '0.95em' }}>
+            {item.timestamp || item.created_at}
+          </small>
+
+          {!item.resolved && (
+            <button 
+              className="resolve-btn"
+              onClick={() => handleResolveReport(item.id)}
+            >
+              Mark as Resolved
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  </section>
+)}
 
         {currentHash === '#urgent' && (
   <section id="urgent" className="dashboard-section">
