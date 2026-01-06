@@ -134,6 +134,12 @@ class Polygon(db.Model):
     assigned_village = db.Column(db.Integer, db.ForeignKey('villages.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class SupAccess(db.Model):
+    __tablename__ = 'supAccess'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.real_id'), unique=True, nullable=False)
+    village_list = db.Column(db.Text) # Storing list of village IDs as a JSON string
+
 # -- Routes --
 
 @app.route('/api/villages', methods=['GET'])
@@ -208,15 +214,32 @@ def login():
         # Verify password & generate token
         access_token = create_access_token(identity=user.real_id, additional_claims={"role": user.role})
         
+        village_name = None
+        if user.assigned_village:
+            v = Village.query.get(user.assigned_village)
+            if v:
+                village_name = v.name
+
+        user_data = {
+            "name": user.name,
+            "email": user.email,
+            "real_id": user.real_id,
+            "role": user.role,
+            "village_name": village_name
+        }
+
+        if user.role == 'super':
+            sup_access = SupAccess.query.filter_by(user_id=user.real_id).first()
+            if sup_access and sup_access.village_list:
+                try:
+                    user_data['village_ids'] = json.loads(sup_access.village_list)
+                except:
+                    user_data['village_ids'] = []
+
         return jsonify({
             "message": "Login successful!",
             "access_token": access_token,
-            "user": {
-                "name": user.name,
-                "email": user.email,
-                "real_id": user.real_id,
-                "role": user.role
-            }
+            "user": user_data
         }), 200
     else:
         return jsonify({"message": "Invalid email or password"}), 401
@@ -277,7 +300,7 @@ def submit_report():
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
             saved_files.append(unique_filename)
         elif file.filename:
-            return jsonify({"message": "Invalid file type"}), 400
+            return jsonify({"message": f"Invalid file type. Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}"}), 400
 
     new_report = Report(
         user_id=user_id,
@@ -368,7 +391,7 @@ def submit_note():
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
             saved_files.append(unique_filename)
         elif file.filename:
-            return jsonify({"message": "Invalid file type"}), 400
+            return jsonify({"message": f"Invalid file type. Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}"}), 400
 
     new_note = Note(
         user_id=user_id,
@@ -391,16 +414,29 @@ def submit_note():
 @jwt_required()
 def get_reports():
     user_id = get_jwt_identity()
-    claims = get_jwt()
-    
-    # Check if the person logged in is the Admin (head)
-    if claims.get('role') == 'head':
-        # Admin gets EVERYTHING from the database
-        reports = Report.query.order_by(Report.submitted_at.desc()).all()
-    else:
-        # Villagers only see what they personally submitted
-        reports = Report.query.filter_by(user_id=user_id).order_by(Report.submitted_at.desc()).all()
-    
+    claims = get_jwt()    
+    role = claims.get('role')
+
+    query = Report.query
+
+    if role == 'super':
+        sup_access = SupAccess.query.filter_by(user_id=user_id).first()
+        if sup_access and sup_access.village_list:
+            village_ids = json.loads(sup_access.village_list)
+            query = query.filter(Report.assigned_village.in_(village_ids))
+        else:
+            return jsonify([]), 200 # Supervisor with no villages assigned
+    elif role == 'villager':
+        query = query.filter_by(user_id=user_id)
+    # For 'head', no initial filter, gets all reports
+
+    # Optional filter by specific village ID from query args
+    village_id_filter = request.args.get('village_id', type=int)
+    if village_id_filter:
+        query = query.filter(Report.assigned_village == village_id_filter)
+
+    reports = query.order_by(Report.submitted_at.desc()).all()
+
     output = []
     for report in reports:
         output.append({
@@ -410,7 +446,6 @@ def get_reports():
             'report_date': report.report_date.isoformat() if report.report_date else None,
             'longitude': report.longitude,
             'latitude': report.latitude,
-            # Make sure this matches what the frontend expects
             'submitted_at': report.submitted_at.isoformat() 
         })
     
@@ -441,7 +476,26 @@ def get_notes():
 @app.route('/api/sos_requests', methods=['GET'])
 @jwt_required()
 def get_sos_requests():
-    requests = SOSRequest.query.order_by(SOSRequest.created_at.desc()).all()
+    user_id = get_jwt_identity()
+    claims = get_jwt()
+    role = claims.get('role')
+
+    query = SOSRequest.query
+
+    if role == 'super':
+        sup_access = SupAccess.query.filter_by(user_id=user_id).first()
+        if sup_access and sup_access.village_list:
+            village_ids = json.loads(sup_access.village_list)
+            query = query.filter(SOSRequest.assigned_village.in_(village_ids))
+        else:
+            return jsonify([]), 200
+
+    # Optional filter by specific village ID from query args
+    village_id_filter = request.args.get('village_id', type=int)
+    if village_id_filter:
+        query = query.filter(SOSRequest.assigned_village == village_id_filter)
+
+    requests = query.order_by(SOSRequest.created_at.desc()).all()
     output = []
     for req in requests:
         output.append({
@@ -563,17 +617,23 @@ def update_village_status():
 @jwt_required()
 def submit_announcement():
     claims = get_jwt()
-    if claims.get('role') != 'head':
-        return jsonify({"message": "Access denied: Head only"}), 403
+    role = claims.get('role')
+    if role not in ['head', 'super']:
+        return jsonify({"message": "Access denied: Admin/Supervisor only"}), 403
         
     data = request.get_json(force=True)
     user_id = get_jwt_identity()
     title = data.get('title')
     content = data.get('content')
-    
-    # Get user's village
-    user = User.query.filter_by(real_id=user_id).first()
-    assigned_village = user.assigned_village if user else None
+    village_id = data.get('village_id') # New field for super user
+
+    assigned_village = None
+    if role == 'head':
+        user = User.query.filter_by(real_id=user_id).first()
+        assigned_village = user.assigned_village if user else None
+    elif role == 'super':
+        # If village_id is provided, use it. Otherwise, it's a global announcement.
+        assigned_village = village_id
     
     new_announcement = Announcement(
         user_id=user_id,
@@ -593,7 +653,14 @@ def submit_announcement():
 @app.route('/api/announcements', methods=['GET'])
 @jwt_required()
 def get_announcements():
-    announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    village_id_filter = request.args.get('village_id', type=int)
+    
+    query = Announcement.query
+
+    if village_id_filter:
+        query = query.filter(db.or_(Announcement.assigned_village == village_id_filter, Announcement.assigned_village == None))
+
+    announcements = query.order_by(Announcement.created_at.desc()).all()
     output = []
     for a in announcements:
         output.append({
@@ -707,15 +774,22 @@ def delete_polygon(polygon_id):
 @jwt_required()
 def get_village_status():
     user_id = get_jwt_identity()
-    user = User.query.filter_by(real_id=user_id).first()
-    if not user or not user.assigned_village:
-        return jsonify({"message": "User not assigned to a village"}), 400
+    user = User.query.filter_by(real_id=user_id).first()    
+    village_id_arg = request.args.get('village_id', type=int)
+    
+    target_village_id = None
+    if village_id_arg:
+        target_village_id = village_id_arg
+    elif user and user.assigned_village:
+        target_village_id = user.assigned_village
+
+    if not target_village_id:
+        return jsonify({"message": "Village not found or specified"}), 404
         
-    village = Village.query.get(user.assigned_village)
+    village = Village.query.get(target_village_id)
     if not village:
         return jsonify({"message": "Village not found"}), 404
         
-    # --- FIX: Include todays_reports in return data ---
     return jsonify({
         "emergency_status": village.emergency_status,
         "service_status": village.service_status,
@@ -786,14 +860,6 @@ if __name__ == '__main__':
                 except:
                     pass
                 
-                # Update polygons table structure
-                try:
-                    # Check if old columns exist and drop/recreate table
-                    conn.execute(db.text('DROP TABLE IF EXISTS polygons'))
-                    print("Dropped old polygons table")
-                except:
-                    pass
-                    
                 conn.commit()
         except Exception as e:
             print(f"Error updating tables: {e}")

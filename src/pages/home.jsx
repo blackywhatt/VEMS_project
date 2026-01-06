@@ -18,13 +18,17 @@ L.Icon.Default.mergeOptions({
 
 const Home = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   useEffect(() => { document.title = 'Home'; }, []);
 
   // Redirect if not logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
     if (!token) {
       navigate('/login');
+    } else if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
   }, [navigate]);
 
@@ -48,7 +52,7 @@ const Home = () => {
   }, []);
 
   const [cards, setCards] = useState([
-    { id: 1, img: weatherImg, title: 'Weather', text: 'Sunny' }, // Static for now
+    { id: 1, img: weatherImg, title: 'Weather', text: 'Loading...' },
     { id: 2, img: emergencyImg, title: 'Emergency Status', text: 'Loading...' },
     { id: 4, img: serviceImg, title: 'Service Status', text: 'Loading...' },
   ]);
@@ -57,6 +61,32 @@ const Home = () => {
     setCards(prev => prev.map(c => (c.id === id ? { ...c, text: newText } : c)));
   };
   
+  const fetchWeather = async (villageName) => {
+    try {
+      // Fetch weather condition (%C) and temperature (%t)
+      const res = await fetch(`https://wttr.in/${encodeURIComponent(villageName + ', Malaysia')}?format=%C+%t`);
+      if (res.ok) {
+        const text = await res.text();
+        updateCardText(1, text.trim());
+      } else {
+        updateCardText(1, 'Unavailable');
+      }
+    } catch (e) {
+      console.error("Weather fetch failed:", e);
+      updateCardText(1, 'Unavailable');
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      if (user.village_name) {
+        fetchWeather(user.village_name);
+      } else {
+        updateCardText(1, 'Unavailable');
+      }
+    }
+  }, [user]);
+
   useEffect(() => {
     const fetchVillageStatus = async () => {
       const token = localStorage.getItem('token');
@@ -297,7 +327,8 @@ const Home = () => {
         fetchReports();
         showNotification('Report submitted successfully!');
       } else {
-        showNotification('Failed to submit report', 'error');
+        const data = await res.json();
+        showNotification(data.message || 'Failed to submit report', 'error');
       }
     } catch (error) {
       console.error("Error submitting report:", error);
@@ -426,6 +457,10 @@ const Home = () => {
       )}
 
       <div className="home-sidenav">
+        <div style={{ padding: '20px 10px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '10px' }}>
+           <h2 style={{ color: 'white', margin: 0, fontSize: '1.5rem' }}>VEMS</h2>
+           {user?.village_name && <p style={{ color: '#cbd5e1', margin: '5px 0 0', fontSize: '0.9rem' }}>{user.village_name}</p>}
+        </div>
         <a href="#overview" className={getTabClass('#overview')}>
           <svg className="home-tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
           Overview

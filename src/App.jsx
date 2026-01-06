@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/dashboard";
 import Home from "./pages/home";
+import Super from "./pages/super";
 
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <Route path="/Register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/home" element={<Home />} />
+        <Route path="/super" element={<Super />} />
       </Routes>
     </BrowserRouter>
   );
