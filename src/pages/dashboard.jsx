@@ -85,6 +85,10 @@ const Dashboard = () => {
       createdAt: getCurrentDateTimeLocal(),
     });
 
+  // WhatsApp Popup State
+  const [showWhatsAppPopup, setShowWhatsAppPopup] = useState(false);
+  const [lastAnnouncement, setLastAnnouncement] = useState(''); // Store content to send
+
   // Map variables
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
@@ -463,7 +467,7 @@ const refreshSOS = async () => {
           })
         });
         if (res.ok) {
-          setShowForm(false);
+          setShowForm(false); 
           setNewItem({ title: '', content: '' });
           fetchAnnouncements();
         }
@@ -497,6 +501,35 @@ const refreshSOS = async () => {
     } catch (e) { console.error(e); }
   };
 
+  const handleSendWhatsApp = async () => {
+      const token = localStorage.getItem('token');
+      showNotification('Starting WhatsApp automation... Do not move mouse!', 'warning');
+      setShowWhatsAppPopup(false); // Close popup immediately
+
+      try {
+        const res = await fetch('http://localhost:5000/api/broadcast_whatsapp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            message: lastAnnouncement
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          showNotification(data.message, 'success');
+        } else {
+          showNotification('WhatsApp failed: ' + data.message, 'error');
+        }
+      } catch (e) {
+        console.error(e);
+        showNotification('Server error sending WhatsApp', 'error');
+      }
+    };
+
   // Manage form state
   const [emergencyInput, setEmergencyInput] = useState(
     'Normal'
@@ -523,6 +556,10 @@ const refreshSOS = async () => {
       if (res.ok) {
         showNotification('Statuses updated!', 'success');
         fetchVillageStatus();
+        //Whatsapp
+        const messageText = `*⚠️ VEMS STATUS UPDATE ⚠️*\n\n🚨 Emergency Level: ${emergencyInput}\n🛠 Service Status: ${serviceInput}`;
+        setLastAnnouncement(messageText);
+        setShowWhatsAppPopup(true);
       }
     } catch (e) { console.error(e); }
   };
@@ -972,6 +1009,36 @@ const refreshSOS = async () => {
               </button>
             </div>
           </section>
+        )}
+
+        {/* WhatsApp Confirmation Popup */}
+        {showWhatsAppPopup && (
+          <div className="dash-modal-overlay">
+            <div className="dash-modal-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '40px', marginBottom: '10px' }}>📱</div>
+              <h3 style={{ marginTop: 0 }}>Broadcast Alert?</h3>
+              <p>Do you want to broadcast this <b>Status Update</b> to all villagers?</p>
+              <p style={{ fontSize: '0.9em', color: '#666' }}>
+                (Note: This will open WhatsApp Web on the server)
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+                <button
+                  onClick={handleSendWhatsApp}
+                  className="dash-btn-submit"
+                  style={{ backgroundColor: '#10b981' }}
+                >
+                  Yes, Send Alert
+                </button>
+                <button
+                  onClick={() => setShowWhatsAppPopup(false)}
+                  className="dash-btn-cancel"
+                >
+                  No, Skip
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

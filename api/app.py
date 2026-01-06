@@ -1,3 +1,6 @@
+import pywhatkit
+import pyautogui
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -715,6 +718,44 @@ def admin_only():
         return jsonify({"message": "Access denied: Head only"}), 403
     
     return jsonify({"message": "Welcome to the secret admin area!"})
+
+@app.route('/api/broadcast_whatsapp', methods=['POST'])
+@jwt_required()
+def broadcast_whatsapp():
+    # Only Head Admin can send broadcasts
+    claims = get_jwt()
+    if claims.get('role') != 'head':
+        return jsonify({"message": "Access denied"}), 403
+
+    data = request.get_json(force=True)
+    message_content = data.get('message', 'Emergency Alert from VEMS')
+
+    # Filter for valid Malaysian numbers (starts with +60 or 60 or 01)
+    users = User.query.filter(User.phone_number.isnot(None)).all()
+    
+    sent_count = 0
+    
+    try:
+        for user in users:
+            phone = user.phone_number
+
+            # Assuming Malaysian numbers (e.g., 0123456789 -> +60123456789)
+            if phone.startswith('0'):
+                phone = '+60' + phone[1:]
+            elif not phone.startswith('+'):
+                phone = '+' + phone
+
+            # Send the message
+            # wait_time=15 (time to load web), tab_close=True (close after sending)
+            pywhatkit.sendwhatmsg_instantly(phone, message_content, 15, True, 3)
+            sent_count += 1
+            time.sleep(2) 
+
+        return jsonify({"message": f"Broadcast sent to {sent_count} villagers!"}), 200
+
+    except Exception as e:
+        print(f"WhatsApp Error: {e}")
+        return jsonify({"message": "Failed to send WhatsApp messages", "error": str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():
