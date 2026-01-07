@@ -83,3 +83,43 @@ Time: 10:13
 Phone Number: +60183883006
 Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Normal🛠 Service Status: Operational
 --------------------
+Date: 7/1/2026
+Time: 15:17
+Phone Number: +60123456789
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
+Date: 7/1/2026
+Time: 15:17
+Phone Number: +60198765432
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
+Date: 7/1/2026
+Time: 15:17
+Phone Number: +6012341234
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
+Date: 7/1/2026
+Time: 15:18
+Phone Number: +60164086242
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
+Date: 7/1/2026
+Time: 15:18
+Phone Number: +60183883006
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
+Date: 7/1/2026
+Time: 15:18
+Phone Number: +60123456789
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
+Date: 7/1/2026
+Time: 15:19
+Phone Number: +60164086242
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
+Date: 7/1/2026
+Time: 15:19
+Phone Number: +601129511678
+Message: *⚠️ VEMS STATUS UPDATE ⚠️*🚨 Emergency Level: Critical🛠 Service Status: Down
+--------------------
