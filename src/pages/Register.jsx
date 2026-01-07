@@ -86,9 +86,10 @@ const Register = () => {
       return;
     }
 
-    // Validate name length
-    if (name.trim().length < 2) {
-      setError('Name must be at least 2 characters long');
+    // Validate name length and format
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (name.trim().length < 5 || !nameRegex.test(name)) {
+      setError('Name must be at least 5 characters long and contain only letters');
       setLoading(false);
       return;
     }
@@ -111,8 +112,8 @@ const Register = () => {
 
     // Validate ID format
     const idRegex = /^[a-zA-Z0-9]+$/;
-    if (!idRegex.test(id)) {
-      setError('ID must contain only letters and numbers');
+    if (id.length < 6 || !idRegex.test(id)) {
+      setError('ID must be at least 6 characters long and contain only letters and numbers');
       setLoading(false);
       return;
     }
