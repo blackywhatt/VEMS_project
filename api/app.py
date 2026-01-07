@@ -1,7 +1,7 @@
 import pywhatkit
 import pyautogui
 import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 import os
@@ -843,6 +843,10 @@ def broadcast_whatsapp():
     except Exception as e:
         print(f"WhatsApp Error: {e}")
         return jsonify({"message": "Failed to send WhatsApp messages", "error": str(e)}), 500
+
+@app.route('/api/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
     with app.app_context():

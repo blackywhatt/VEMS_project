@@ -247,6 +247,7 @@ const Home = () => {
             report_date: r.report_date ? new Date(r.report_date).toLocaleString() : null,
             longitude: r.longitude,
             latitude: r.latitude,
+            file_paths: r.file_paths,
             created_at: new Date(r.submitted_at).toLocaleString()
           };
         });
@@ -580,6 +581,26 @@ const Home = () => {
                   <h3 className="home-card-title">{item.title}</h3>
                   <small style={{ color: '#d9534f', fontWeight: 'bold' }}>{item.category}</small>
                   <p className="home-card-text">{item.content}</p>
+                  
+                  {item.file_paths && item.file_paths.length > 0 && (
+                    <div style={{ marginTop: '10px', marginBottom: '5px' }}>
+                      <strong style={{ fontSize: '0.9em' }}>Attachments:</strong>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '3px' }}>
+                        {item.file_paths.map((file, index) => (
+                          <a 
+                            key={index} 
+                            href={`http://localhost:5000/api/uploads/${file}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.85em', color: '#2563eb', textDecoration: 'underline' }}
+                          >
+                            View File {index + 1}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <small style={{ display: 'block', color: '#666' }}>Incident: {item.report_date}</small>
                 </div>
               ))}

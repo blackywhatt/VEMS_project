@@ -174,6 +174,7 @@ const Super = () => {
           title: parsed.title || 'Villager Report',
           category: parsed.category || 'General',
           content: parsed.description || r.content,
+          file_paths: r.file_paths,
           created_at: r.submitted_at ? new Date(r.submitted_at).toLocaleString() : 'No Date'
         };
       });
@@ -370,6 +371,26 @@ const Super = () => {
                   {item.category && <small style={{ color: item.resolved ? '#22c55e' : '#d9534f', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{item.category}</small>}
                   <div className="dashboard-card-dash" aria-hidden="true" />
                   <p className="dashboard-card-text">{item.description || item.content}</p>
+
+                  {item.file_paths && item.file_paths.length > 0 && (
+                    <div style={{ marginTop: '10px' }}>
+                      <strong>Attachments:</strong>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '5px' }}>
+                        {item.file_paths.map((file, index) => (
+                          <a 
+                            key={index} 
+                            href={`http://localhost:5000/api/uploads/${file}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.9em', color: '#2563eb', textDecoration: 'underline' }}
+                          >
+                            View File {index + 1}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <small style={{ display: 'block', marginTop: '10px', color: '#666', fontSize: '0.95em' }}>{item.created_at}</small>
                   {!item.resolved && <button className="resolve-btn" onClick={() => handleResolveReport(item.id)}>Mark as Resolved</button>}
                 </div>
